@@ -14,13 +14,21 @@ internal class parser {
     /* parser */
     // create instence
     private XmlDocument document;
+    private XmlNamespaceManager nsmgr;
     private List< globals.node > m_nodes = new List<globals.node>( );
     private globals.graph graph = new globals.graph( );
+    private List< int > topology_sort = new List<int>( );
 
     public parser( ) {
 
         // setup on parser create.
         this.document = new XmlDocument( );
+
+
+        nsmgr = new XmlNamespaceManager( document.NameTable );
+        nsmgr.AddNamespace("main", "http://graphml.graphdrawing.org/xmlns");
+        nsmgr.AddNamespace("style", "http://www.yworks.com/yFilesHTML/demos/FlatDemoStyle/1.0");
+
     }
 
     public void load_document( string path ) { 
@@ -33,7 +41,7 @@ internal class parser {
     private XmlNodeList get_nodes( ) { 
 
         // create instence.
-        XmlNodeList current_nodes = this.document.GetElementsByTagName( "node" );
+        XmlNodeList current_nodes = this.document.SelectNodes( "/main:graphml/main:graph/main:node" , nsmgr );
 
         // return.
         return current_nodes;
@@ -93,64 +101,47 @@ internal class parser {
         return -1;
     }
 
-    public bool parse( ) {
+    public bool parse() {
 
-        
+        if (this.get_nodes() == null)
+        { return false; }
+
         graph.initialize( this.get_nodes( ).Count );
 
-        // loop thru all nodes.
-        for ( int i = 0; i < this.get_nodes( ).Count; i++ ) {
+        /* node */
 
-            // current node.
-            XmlNode current_node = this.get_nodes( )[ i ];
+        XmlNodeList nodes = this.document.SelectNodes( "/main:graphml/main:graph/main:node" , nsmgr );
 
-            // get our node id.
-            XmlAttribute node_id = get_attribute( current_node, "id" );
-            XmlAttribute node_type = null;
-            string cdata = "";
 
-            // Get type.
-            {
-
-                // get all nodes childs.
-                XmlNodeList node_child = current_node.ChildNodes;
-                for ( int j = 0; j < node_child.Count; j++ ) {
-                    
-                    // get current child.
-                    XmlNode child = node_child[ j ];
-                    
-                    // make sure its not null.
-                    var attribute = child.Attributes[ "key" ];
-                    if ( attribute == null ) { 
-                        continue; 
-                    }
-
-                    // run when we found our d0 key.
-                    if ( attribute.Value == "d0" ) {
-
-                        // get the first child. // don't like that method but it works for now.
-                        var cdata_value = child.FirstChild.FirstChild.FirstChild.InnerText.Trim( );
-                        cdata = cdata_value;    
-                        // not for now.
-                    }
-
-                    // run when we found our d3 key.
-                    if ( attribute.Value == "d3" ) {
-
-                        // save our node_type.
-                        node_type = child.FirstChild.Attributes[ "type" ];
-                    }
-                }
-            }
-
-            if ( node_type == null ) {
+        /* loop thru all nodes. */
+        for ( int i = 0; i < nodes.Count; i++ ) {
+                 
+            /* get current node. */ 
+            XmlNode node = nodes[ i ];
+            if ( node == null ) { 
                 continue;
             }
 
-
-            // add to our list.
-            m_nodes.Add( new node( node_id.Value, node_type.Value, cdata ) );
+            // get our node id.
+            XmlAttribute node_id = get_attribute( node, "id" );
+            m_nodes.Add( new node( node_id.Value, "", "" ) );
         }
+
+        // create instence.
+        XmlNodeList types = this.document.SelectNodes( "/main:graphml/main:graph/main:node/main:data/style:FlowchartNodeStyle" , nsmgr );
+        for ( int i = 0; i < types.Count; i++ ) {
+
+            /* get current FlowchartNodeStyle. */
+            XmlNode flowchart_node_style = types[ i ];
+            if ( flowchart_node_style == null ) { 
+                continue;
+            }
+
+            // get our node id.
+            XmlAttribute flowchart_node_style_type = get_attribute( flowchart_node_style, "type" );
+            m_nodes[ i ].set_type( flowchart_node_style_type.Value );
+        }
+       
 
         graph.initialzie_nodes( m_nodes );
 
@@ -184,12 +175,11 @@ internal class parser {
             int source_id = find_number( attribute_source.Value );
             int target_id = find_number( attribute_target.Value );
             graph.add_edge( source_id, target_id );
-            
+
         }
 
-        // graph
         graph.write_graph( );
-
+        topology_sort = graph.sort(  );
         return true;
     }
     /* end */
@@ -207,5 +197,13 @@ internal class parser {
         this.path = path; // set our path.
     }
     /* end */
+
+    public List< globals.node > get_nodes_list( ) {
+        return m_nodes;
+    }
+
+    public List< int > get_topology_sort_list( ) {
+        return topology_sort;
+    }
 }
 

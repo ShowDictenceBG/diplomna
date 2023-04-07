@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Diplomna.miscellaneous.algorithm;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml;
@@ -16,7 +17,13 @@ internal class initialize {
 
         // load new xml file.
         m_parser.load_document( m_parser.get_path( ) );
-        m_parser.parse( );
+        if ( m_parser.parse( ) ) {
+
+            /* we got our information */
+            algorithm algorithm = new algorithm( m_parser.get_nodes_list( ), m_parser.get_topology_sort_list( ) );
+            algorithm.main(  );
+
+        }
     }
 
 }
